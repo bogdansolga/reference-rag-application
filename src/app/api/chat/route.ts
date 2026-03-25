@@ -8,7 +8,7 @@ const chatModel = process.env.CHAT_MODEL || "gpt-5.4-nano";
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
-  // Get the latest user message for embedding
+  // Get the latest user message text for embedding
   const lastUserMessage = [...messages]
     .reverse()
     .find((m: { role: string }) => m.role === "user");
@@ -16,8 +16,21 @@ export async function POST(req: Request) {
     return new Response("No user message found", { status: 400 });
   }
 
+  // Extract text from message (AI SDK v6 uses parts array, fallback to content for compatibility)
+  const userText =
+    lastUserMessage.content ??
+    lastUserMessage.parts
+      ?.filter((p: { type: string }) => p.type === "text")
+      .map((p: { text: string }) => p.text)
+      .join("") ??
+    "";
+
+  if (!userText) {
+    return new Response("Empty user message", { status: 400 });
+  }
+
   // 1. Embed the user's query
-  const queryEmbedding = await embedQuery(lastUserMessage.content);
+  const queryEmbedding = await embedQuery(userText);
 
   // 2. Search for similar chunks
   const results = await searchSimilar(queryEmbedding, 5);

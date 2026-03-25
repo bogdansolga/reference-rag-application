@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useRef, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import Markdown from "react-markdown";
 
 interface Source {
@@ -71,6 +72,14 @@ export function Chat() {
         <span className="text-xs text-[var(--muted)] bg-[var(--input)] px-2 py-1 rounded">
           AI Introduction &amp; Integration
         </span>
+        <div className="ml-auto">
+          <Link
+            href="/overview"
+            className="text-sm text-[var(--primary)] hover:underline"
+          >
+            RAG Overview
+          </Link>
+        </div>
       </header>
 
       {/* Messages area */}
@@ -78,7 +87,7 @@ export function Chat() {
         {messages.length === 0 && (
           <div className="max-w-[640px] mx-auto text-center pt-20 pb-8">
             <div className="text-4xl mb-3">🔍</div>
-            <p className="text-[var(--muted)] text-sm mb-1">
+            <p className="text-[var(--muted)] text-base mb-1">
               Ask anything about AI, ML, RAG, or Vector Databases
             </p>
             <p className="text-[var(--border)] text-xs">
@@ -92,13 +101,13 @@ export function Chat() {
             <div key={message.id}>
               {message.role === "user" ? (
                 <div className="flex justify-end">
-                  <div className="bg-[var(--user-bubble)] text-[var(--user-text)] px-4 py-2.5 rounded-xl rounded-br-sm max-w-[80%] text-sm">
+                  <div className="bg-[var(--user-bubble)] text-[var(--user-text)] px-4 py-2.5 rounded-xl rounded-br-sm max-w-[80%] text-base">
                     {getMessageText(message)}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div className="bg-[var(--card)] border border-[var(--border)] px-4 py-3 rounded-xl text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
+                  <div className="bg-[var(--card)] border border-[var(--border)] px-5 py-4 rounded-xl text-base leading-relaxed prose max-w-none">
                     <Markdown>{getMessageText(message)}</Markdown>
                   </div>
                   {sourcesMap[message.id] &&
@@ -144,13 +153,13 @@ export function Chat() {
       </div>
 
       {/* Input area */}
-      <div className="px-6 py-4 border-t border-[var(--border)] bg-[#0f0f0f]">
+      <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--input)]">
         <form onSubmit={handleSubmit} className="max-w-[640px] mx-auto flex gap-2">
           <input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Ask a question about AI, ML, or RAG..."
-            className="flex-1 bg-[var(--input)] border border-[var(--border)] rounded-lg px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
+            className="flex-1 bg-[var(--input)] border border-[var(--border)] rounded-lg px-4 py-3 text-base text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
             disabled={isLoading}
           />
           <button
