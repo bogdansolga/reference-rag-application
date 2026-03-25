@@ -85,7 +85,7 @@ export function Chat() {
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
         {messages.length === 0 && (
-          <div className="max-w-[640px] mx-auto text-center pt-20 pb-8">
+          <div className="max-w-6xl mx-auto text-center pt-20 pb-8">
             <div className="text-4xl mb-3">🔍</div>
             <p className="text-[var(--muted)] text-base mb-1">
               Ask anything about AI, ML, RAG, or Vector Databases
@@ -96,7 +96,7 @@ export function Chat() {
           </div>
         )}
 
-        <div className="max-w-[640px] mx-auto space-y-4">
+        <div className="max-w-6xl mx-auto space-y-4">
           {messages.map((message) => (
             <div key={message.id}>
               {message.role === "user" ? (
@@ -154,7 +154,7 @@ export function Chat() {
 
       {/* Input area */}
       <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--input)]">
-        <form onSubmit={handleSubmit} className="max-w-[640px] mx-auto flex gap-2">
+        <form onSubmit={handleSubmit} className="max-w-6xl mx-auto flex gap-2">
           <input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
