@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, createDataStreamResponse, streamText } from "ai";
+import { convertToModelMessages, streamText } from "ai";
 import { embedQuery } from "@/lib/embeddings";
 import { formatContext, searchSimilar } from "@/lib/retrieval";
 
@@ -9,7 +9,9 @@ export async function POST(req: Request) {
   const { messages } = await req.json();
 
   // Get the latest user message for embedding
-  const lastUserMessage = [...messages].reverse().find((m: { role: string }) => m.role === "user");
+  const lastUserMessage = [...messages]
+    .reverse()
+    .find((m: { role: string }) => m.role === "user");
   if (!lastUserMessage) {
     return new Response("No user message found", { status: 400 });
   }
@@ -28,25 +30,23 @@ Answer questions based on the following context from the training materials. If 
 
 ${context ? `## Retrieved Context\n\n${context}` : "No relevant context found in the training materials."}`;
 
-  // 4. Stream response with source citations as data annotations
+  // 4. Prepare source citations header
   const sources = results.map((r) => ({
     filename: r.filename,
     chunkIndex: r.chunkIndex,
     similarity: parseFloat(r.similarity.toFixed(2)),
   }));
 
-  return createDataStreamResponse({
-    execute: async (dataStream) => {
-      // Send sources as a data annotation
-      dataStream.writeMessageAnnotation({ sources });
+  // 5. Stream LLM response
+  const result = streamText({
+    model: openai(chatModel),
+    system: systemPrompt,
+    messages: await convertToModelMessages(messages),
+  });
 
-      const result = streamText({
-        model: openai(chatModel),
-        system: systemPrompt,
-        messages: await convertToModelMessages(messages),
-      });
-
-      result.mergeIntoDataStream(dataStream);
+  return result.toUIMessageStreamResponse({
+    headers: {
+      "X-Sources": JSON.stringify(sources),
     },
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect, useState, type FormEvent } from "react";
 import Markdown from "react-markdown";
 
 interface Source {
@@ -10,24 +10,58 @@ interface Source {
   similarity: number;
 }
 
+/** Extract text content from a UIMessage's parts array */
+function getMessageText(message: { parts: Array<{ type: string; text?: string }> }): string {
+  return message.parts
+    .filter((p) => p.type === "text" && p.text)
+    .map((p) => p.text)
+    .join("");
+}
+
 export function Chat() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat();
+  const [inputValue, setInputValue] = useState("");
+  const [sourcesMap, setSourcesMap] = useState<Record<string, Source[]>>({});
+  const lastQueryRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  const { messages, sendMessage, status, error } = useChat({
+    onFinish: async ({ message }) => {
+      const query = lastQueryRef.current;
+      if (!query) return;
+
+      try {
+        const res = await fetch(
+          `/api/search?q=${encodeURIComponent(query)}`,
+        );
+        const data = await res.json();
+        const sources: Source[] = data.results.map(
+          (r: { filename: string; chunkIndex: number; similarity: number }) => ({
+            filename: r.filename,
+            chunkIndex: r.chunkIndex,
+            similarity: parseFloat(r.similarity.toFixed(2)),
+          }),
+        );
+        setSourcesMap((prev) => ({ ...prev, [message.id]: sources }));
+      } catch {
+        // silently ignore source fetch errors
+      }
+    },
+  });
+
+  const isLoading = status !== "ready";
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (inputValue.trim() && !isLoading) {
+      lastQueryRef.current = inputValue;
+      void sendMessage({ text: inputValue });
+      setInputValue("");
+    }
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Extract sources from message annotations
-  function getSourcesForMessage(message: typeof messages[number]): Source[] {
-    const annotations = message.annotations as Array<{ sources?: Source[] }> | undefined;
-    if (!annotations) return [];
-    for (const annotation of annotations) {
-      if (annotation.sources) return annotation.sources;
-    }
-    return [];
-  }
 
   return (
     <div className="flex flex-col h-screen">
@@ -59,39 +93,49 @@ export function Chat() {
               {message.role === "user" ? (
                 <div className="flex justify-end">
                   <div className="bg-[var(--user-bubble)] text-[var(--user-text)] px-4 py-2.5 rounded-xl rounded-br-sm max-w-[80%] text-sm">
-                    {message.content}
+                    {getMessageText(message)}
                   </div>
                 </div>
               ) : (
                 <div>
                   <div className="bg-[var(--card)] border border-[var(--border)] px-4 py-3 rounded-xl text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
-                    <Markdown>{message.content}</Markdown>
+                    <Markdown>{getMessageText(message)}</Markdown>
                   </div>
-                  {/* Source citations */}
-                  {getSourcesForMessage(message).length > 0 && (
-                    <div className="mt-2 pl-2">
-                      <p className="text-[11px] text-[var(--muted)] mb-1.5">Sources:</p>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {getSourcesForMessage(message).map((source, idx) => (
-                          <span
-                            key={idx}
-                            className="text-[11px] text-[var(--primary)] bg-[var(--accent)] px-2 py-0.5 rounded border border-[var(--accent-border)]"
-                          >
-                            {source.filename} — chunk {source.chunkIndex}{" "}
-                            <span className="text-[var(--muted)]">({source.similarity})</span>
-                          </span>
-                        ))}
+                  {sourcesMap[message.id] &&
+                    sourcesMap[message.id].length > 0 && (
+                      <div className="mt-2 pl-2">
+                        <p className="text-[11px] text-[var(--muted)] mb-1.5">
+                          Sources:
+                        </p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {sourcesMap[message.id].map((source, idx) => (
+                            <span
+                              key={idx}
+                              className="text-[11px] text-[var(--primary)] bg-[var(--accent)] px-2 py-0.5 rounded border border-[var(--accent-border)]"
+                            >
+                              {source.filename} — chunk {source.chunkIndex}{" "}
+                              <span className="text-[var(--muted)]">
+                                ({source.similarity})
+                              </span>
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               )}
             </div>
           ))}
 
-          {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+          {status === "submitted" && (
             <div className="bg-[var(--card)] border border-[var(--border)] px-4 py-3 rounded-xl text-sm text-[var(--muted)]">
               Thinking...
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-900/20 border border-red-800 px-4 py-3 rounded-xl text-sm text-red-400">
+              {error.message}
             </div>
           )}
 
@@ -101,20 +145,17 @@ export function Chat() {
 
       {/* Input area */}
       <div className="px-6 py-4 border-t border-[var(--border)] bg-[#0f0f0f]">
-        <form
-          onSubmit={handleSubmit}
-          className="max-w-[640px] mx-auto flex gap-2"
-        >
+        <form onSubmit={handleSubmit} className="max-w-[640px] mx-auto flex gap-2">
           <input
-            value={input}
-            onChange={handleInputChange}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             placeholder="Ask a question about AI, ML, or RAG..."
             className="flex-1 bg-[var(--input)] border border-[var(--border)] rounded-lg px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
             disabled={isLoading}
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !inputValue.trim()}
             className="bg-[var(--primary)] text-[var(--primary-foreground)] px-5 py-3 rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             Send
