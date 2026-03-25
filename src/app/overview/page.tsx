@@ -13,7 +13,7 @@ export default function OverviewPage() {
         </span>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-6xl mx-auto px-6 py-10">
         <h1 className="text-4xl font-bold mb-2">Retrieval Augmented Generation (RAG)</h1>
         <p className="text-[var(--muted)] text-xl mb-8">
           Architecture Overview &mdash; <em>&quot;There are no solutions, there are only tradeoffs.&quot;</em>
@@ -50,8 +50,8 @@ export default function OverviewPage() {
               {/* Arrows: User to Web App */}
               <line x1="370" y1="60" x2="370" y2="100" stroke="var(--muted)" strokeWidth="1.5" markerEnd="url(#arrow)" />
               <line x1="430" y1="60" x2="430" y2="100" stroke="var(--muted)" strokeWidth="1.5" markerEnd="url(#arrow)" />
-              <text x="350" y="85" textAnchor="end" fill="var(--muted)" fontSize="10">upload</text>
-              <text x="450" y="85" fill="var(--muted)" fontSize="10">query</text>
+              <text x="350" y="85" textAnchor="end" fill="var(--muted)" fontSize="13">upload</text>
+              <text x="450" y="85" fill="var(--muted)" fontSize="13">query</text>
 
               {/* Document to Web App */}
               <line x1="180" y1="125" x2="250" y2="125" stroke="var(--muted)" strokeWidth="1.5" markerEnd="url(#arrow)" />

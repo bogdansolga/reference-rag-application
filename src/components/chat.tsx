@@ -90,7 +90,7 @@ export function Chat() {
             <p className="text-[var(--muted)] text-base mb-1">
               Ask anything about AI, ML, RAG, or Vector Databases
             </p>
-            <p className="text-[var(--border)] text-xs">
+            <p className="text-[var(--muted)] text-sm">
               Answers are grounded in the training course materials
             </p>
           </div>
