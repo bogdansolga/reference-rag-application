@@ -1,154 +1,114 @@
-# Reference RAG Application
+# Claude Code Context
 
-A training showcase application demonstrating Retrieval Augmented Generation (RAG) with a chat interface. Built with Next.js 16, Vercel AI SDK v6, Drizzle ORM, PostgreSQL + pgvector, and Tailwind CSS v4. Runs on Bun.
+This file provides context for Claude Code when working on this project.
 
-## Quick Start
+## What This Is
 
-### Prerequisites
+A minimal RAG (Retrieval Augmented Generation) training showcase. Educational app — clarity over production features.
 
-- [Bun](https://bun.sh/) runtime
-- PostgreSQL with [pgvector](https://github.com/pgvector/pgvector) extension
-- OpenAI API key
+## Tech Stack
 
-### Setup
-
-```bash
-# 1. Install dependencies
-bun install
-
-# 2. Configure environment
-cp .env.local.example .env.local
-# Edit .env.local with your DATABASE_URL and OPENAI_API_KEY
-
-# 3. Bootstrap everything (create DB, enable pgvector, ingest PDFs)
-bun bootstrap
-
-# 4. Start dev server
-bun dev
-```
-
-The app runs at `http://localhost:3000`.
-
-### Environment Variables
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string (e.g., `postgresql://user:password@localhost:5432/rag_training`) |
-| `OPENAI_API_KEY` | Yes | — | OpenAI API key for embeddings and chat |
-| `CHAT_MODEL` | No | `gpt-5.4-nano` | OpenAI chat model ID |
-| `EMBEDDING_MODEL` | No | `text-embedding-3-small` | OpenAI embedding model (1536 dimensions) |
-
-## Scripts
-
-| Command | Description |
-|---|---|
-| `bun dev` | Start dev server with Turbopack |
-| `bun run build` | Production build |
-| `bun start` | Start production server |
-| `bun db:setup` | Create database + run Drizzle migrations |
-| `bun db:embeddings-setup` | Enable pgvector extension + create HNSW index |
-| `bun db:generate` | Generate Drizzle migrations from schema changes |
-| `bun db:migrate` | Run pending Drizzle migrations |
-| `bun db:studio` | Open Drizzle Studio (DB GUI) |
-| `bun ingest` | Ingest PDFs from `data/` directory |
-| `bun bootstrap` | Run all setup steps in order (db:setup, db:embeddings-setup, ingest) |
+- **Next.js 16** (App Router, Turbopack), **React 19**, **TypeScript**
+- **Vercel AI SDK v6** (`ai@^6`, `@ai-sdk/openai@^3`, `@ai-sdk/react@^3`)
+- **Drizzle ORM** + **PostgreSQL** + **pgvector**
+- **Tailwind CSS v4** (`@tailwindcss/postcss`)
+- **Bun** runtime
 
 ## Project Structure
 
 ```
-src/
-├── app/
-│   ├── page.tsx                 # Chat UI (server component, renders <Chat />)
-│   ├── layout.tsx               # Root layout with dark theme
-│   ├── globals.css              # Tailwind v4 + CSS custom properties
-│   └── api/
-│       ├── chat/route.ts        # POST — RAG chat endpoint (embed, search, stream)
-│       └── search/route.ts      # GET ?q=... — direct vector search, returns chunks + scores
-├── lib/
-│   ├── db.ts                    # Drizzle client + pg connection pool (HMR-safe via globalThis)
-│   ├── schema.ts                # documents + chunks table definitions
-│   ├── embeddings.ts            # embedQuery() and embedDocument() via OpenAI
-│   └── retrieval.ts             # searchSimilar() pgvector cosine search, formatContext()
-├── components/
-│   └── chat.tsx                 # Client component: useChat hook, streaming, source citations
-└── types/
-    └── pdf-parse.d.ts           # Type declarations for pdf-parse
-
-scripts/
-├── ingest.ts                    # PDF ingestion: extract text -> chunk -> embed -> store
-├── setup-db.sh                  # Create database + run Drizzle migrations
-├── add-pgvector.sh              # Enable pgvector extension + HNSW index
-└── migrations/
-    └── add-pgvector.sql         # SQL: CREATE EXTENSION vector, ALTER TABLE, CREATE INDEX
-
-data/                            # PDF source documents (gitignored)
-drizzle/                         # Generated Drizzle migrations
-docs/superpowers/specs/          # Design spec
+src/app/page.tsx              → Chat page (renders <Chat />)
+src/app/overview/page.tsx     → RAG architecture visual overview
+src/app/layout.tsx            → Root layout (light theme)
+src/app/globals.css           → Tailwind v4 + CSS vars + prose styles
+src/app/api/chat/route.ts     → POST: embed query → vector search → stream LLM response
+src/app/api/search/route.ts   → GET ?q=: direct vector search, returns chunks + scores
+src/lib/db.ts                 → Drizzle client + pg Pool (globalThis HMR-safe)
+src/lib/schema.ts             → documents + chunks tables (Drizzle)
+src/lib/embeddings.ts         → embedQuery(), embedDocument() via OpenAI
+src/lib/retrieval.ts          → searchSimilar() pgvector cosine, formatContext()
+src/components/chat.tsx       → Client component: useChat, streaming, sources
+scripts/ingest.ts             → PDF ingestion pipeline
+scripts/setup-db.sh           → DB creation + Drizzle migrations
+scripts/add-pgvector.sh       → pgvector extension + HNSW index
+scripts/migrations/add-pgvector.sql → Raw SQL for vector column + index
 ```
 
-## Architecture
+## Critical Patterns
 
-### RAG Pipeline (query flow)
+### AI SDK v6 (NOT v3/v4)
 
-1. User sends question via the chat UI (`src/components/chat.tsx` calls `sendMessage()`)
-2. `POST /api/chat` receives the message array
-3. Embeds the latest user query via `embedQuery()` -> 1536-dim vector
-4. Searches the `chunks` table using pgvector: `ORDER BY embedding <=> $1::vector LIMIT 5`
-5. Builds a system prompt with retrieved context via `formatContext()`
-6. Streams the LLM response via `streamText()` + `toUIMessageStreamResponse()`
-7. Client fetches source citations from `GET /api/search` after response completes (`onFinish` callback)
+The API changed significantly in v6. Do NOT use deprecated patterns:
 
-### Ingestion Pipeline (offline, `bun ingest`)
+```typescript
+// CORRECT (v6)
+const { messages, sendMessage, status } = useChat();
+void sendMessage({ text: inputValue });
+const text = message.parts.filter(p => p.type === "text").map(p => p.text).join("");
+// status: "ready" | "submitted" | "streaming"
 
-1. Reads all PDFs from `data/`
-2. Extracts text via `pdf-parse`
-3. Chunks into ~2000 char segments with ~200 char overlap
-4. Batch-generates embeddings (20 at a time) via `embedDocument()`
-5. Stores in PostgreSQL with `::vector` cast
+// WRONG (old API — do not use)
+// const { input, handleInputChange, handleSubmit, isLoading } = useChat();
+// message.content  ← does not exist in v6
+```
 
-### Database
+### pgvector
 
-- **PostgreSQL** with **pgvector** extension
-- Two tables defined in `src/lib/schema.ts`:
-  - `documents` — file metadata (id, filename, title, created_at)
-  - `chunks` — content + embedding vector(1536) (id, document_id, content, chunk_index, metadata)
-- **HNSW index** on `chunks.embedding` using `vector_cosine_ops`
-- The `embedding` column is added via raw SQL migration (`scripts/migrations/add-pgvector.sql`) because Drizzle does not natively support pgvector types
-- Connection pool in `src/lib/db.ts` uses `globalThis` caching to survive Next.js HMR
+- Vector column added via raw SQL migration, NOT Drizzle schema (Drizzle lacks native pgvector support)
+- Insert: cast with `$1::vector`
+- Search: `ORDER BY embedding <=> $1::vector` (cosine distance)
+- Similarity: `1 - (embedding <=> $1::vector)`
+- HNSW index with `vector_cosine_ops`
 
-### Key Patterns
+### Message Text Extraction (server-side)
 
-- **No authentication** — this is a local training showcase
-- **No repository/service layer** — API routes access Drizzle directly for minimal architecture
-- **AI SDK v6 API**: use `sendMessage()` (not `handleSubmit`), check `status` (not `isLoading`), read `message.parts` (not `message.content`). The helper `getMessageText()` in `chat.tsx` extracts text from parts.
-- **pgvector**: vectors are cast with `::vector` on insert, searched with `<=>` cosine distance operator. Similarity is computed as `1 - distance`.
-- **Tailwind CSS v4**: uses `@tailwindcss/postcss` plugin, CSS custom properties for theming in `globals.css`
+Messages arriving at API routes may have `content` (string) or `parts` (array). Always handle both:
 
-## Development
+```typescript
+const userText =
+  lastUserMessage.content ??
+  lastUserMessage.parts
+    ?.filter((p: { type: string }) => p.type === "text")
+    .map((p: { text: string }) => p.text)
+    .join("") ?? "";
+```
 
-### Adding a new API route
+### Architecture Rules
 
-Create a new file under `src/app/api/<name>/route.ts`. Import from `@/lib/*` for database, embeddings, and retrieval utilities.
+- **No auth** — local training showcase
+- **No service/repository layers** — API routes access Drizzle directly
+- **Minimal files** — each file has one clear purpose
+- **Light theme** — CSS custom properties in globals.css
 
-### Modifying the database schema
+## Database
 
-1. Edit `src/lib/schema.ts`
-2. Run `bun db:generate` to generate a new migration
-3. Run `bun db:migrate` to apply it
+- Tables: `documents` (metadata) and `chunks` (content + `embedding vector(1536)`)
+- pgvector setup: `scripts/migrations/add-pgvector.sql`
+- Connection pool: `src/lib/db.ts` with `globalThis` caching for HMR
 
-Note: pgvector-specific columns (embedding) are managed via raw SQL in `scripts/migrations/`, not through Drizzle schema.
+## Environment Variables
 
-### Adding PDF documents
+```
+DATABASE_URL    → PostgreSQL connection string (required)
+OPENAI_API_KEY  → OpenAI API key (required)
+CHAT_MODEL      → default: gpt-5.4-nano
+EMBEDDING_MODEL → default: text-embedding-3-small
+```
 
-1. Place PDF files in the `data/` directory
-2. Run `bun ingest` to process and embed them
-3. The ingestion script will skip documents that already exist (matched by filename)
+## Scripts
 
-### Tech stack versions
+```
+bun dev              → dev server (Turbopack)
+bun run build        → production build
+bun db:setup         → create DB + migrations
+bun db:embeddings-setup → pgvector extension + index
+bun ingest           → process PDFs from data/
+bun bootstrap        → all setup in order
+```
 
-- Next.js 16 (App Router, Turbopack)
-- React 19
-- Vercel AI SDK v6 (`ai@^6.0.0`, `@ai-sdk/openai@^3.0.0`, `@ai-sdk/react@^3.0.0`)
-- Drizzle ORM 0.45+
-- Tailwind CSS 4
-- TypeScript 5.9+
+## When Modifying
+
+- **Schema changes**: edit `src/lib/schema.ts`, then `bun db:generate` + `bun db:migrate`. pgvector columns stay in raw SQL.
+- **New routes**: create under `src/app/api/<name>/route.ts`, import from `@/lib/*`
+- **New pages**: create under `src/app/<name>/page.tsx`
+- **Theme**: edit CSS custom properties in `src/app/globals.css`
