@@ -1,0 +1,19 @@
+# Exposed via k3s's built-in traefik. nip.io resolves the host to the node IP.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: reference-rag
+  namespace: reference-rag
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: rag.185.104.181.115.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: reference-rag
+                port:
+                  number: 3000

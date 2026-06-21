@@ -1,3 +1,4 @@
+import { envNum } from "@/lib/config";
 import { embedQuery } from "@/lib/embeddings";
 import { searchSimilar } from "@/lib/retrieval";
 
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
   }
 
   const queryEmbedding = await embedQuery(query);
-  const results = await searchSimilar(queryEmbedding, 5);
+  const results = await searchSimilar(queryEmbedding, envNum("RAG_TOP_K"));
 
   return Response.json({ query, results });
 }

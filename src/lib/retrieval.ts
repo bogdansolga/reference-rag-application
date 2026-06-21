@@ -15,7 +15,7 @@ export interface RetrievalResult {
 
 export async function searchSimilar(
   embedding: number[],
-  limit = 5,
+  limit: number,
 ): Promise<RetrievalResult[]> {
   const vectorStr = `[${embedding.join(",")}]`;
 

@@ -9,12 +9,13 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Pool } from "pg";
+import { envNum } from "../src/lib/config";
 import { embedDocument } from "../src/lib/embeddings";
 
-// --- Configuration ---
-const CHUNK_SIZE = 2000; // ~500 tokens
-const CHUNK_OVERLAP = 200; // ~50 tokens
-const EMBEDDING_BATCH_SIZE = 20;
+// --- Configuration (from .env.local — nothing hard-coded) ---
+const CHUNK_SIZE = envNum("RAG_CHUNK_SIZE");
+const CHUNK_OVERLAP = envNum("RAG_CHUNK_OVERLAP");
+const EMBEDDING_BATCH_SIZE = envNum("RAG_EMBEDDING_BATCH_SIZE");
 const DATA_DIR = join(process.cwd(), "data");
 
 // --- Direct pool for script (not using the app's pool) ---
@@ -77,16 +78,16 @@ async function ingest() {
   let totalChunks = 0;
   let totalEmbeddings = 0;
 
-  // Dynamic import for pdf-parse (CommonJS module)
-  const pdfParse = (await import("pdf-parse")).default;
+  // pdf-parse v2: PDFParse class (new PDFParse({ data }).getText())
+  const { PDFParse } = await import("pdf-parse");
 
   for (const filename of files) {
     console.log(`Processing: ${filename}`);
 
     // 2. Extract text from PDF
     const pdfBuffer = readFileSync(join(DATA_DIR, filename));
-    const pdf = await pdfParse(pdfBuffer);
-    const text = pdf.text;
+    const parser = new PDFParse({ data: pdfBuffer });
+    const text = (await parser.getText()).text;
     console.log(`  Extracted ${text.length} characters`);
 
     // 3. Insert document metadata

@@ -1,0 +1,40 @@
+# Run-once bootstrap: applies drizzle migrations (creates tables + pgvector
+# extension/column/index) then ingests the data/ PDFs (embeds via Vertex AI).
+# Re-run with: kubectl -n reference-rag delete job rag-ingest && kubectl apply -f 40-ingest-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rag-ingest
+  namespace: reference-rag
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: rag-ingest
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingest
+          image: bogdansolga/reference-rag-application:1.0
+          command: ["sh", "-c", "bun run db:migrate && bun run ingest"]
+          envFrom:
+            - configMapRef:
+                name: rag-config
+            - secretRef:
+                name: rag-secrets
+          volumeMounts:
+            - name: gcp-sa
+              mountPath: /var/secrets/gcp
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+      volumes:
+        - name: gcp-sa
+          secret:
+            secretName: gcp-sa

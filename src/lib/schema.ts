@@ -12,6 +12,7 @@ export const chunks = pgTable("chunks", {
   documentId: integer("document_id").references(() => documents.id).notNull(),
   content: text("content").notNull(),
   chunkIndex: integer("chunk_index").notNull(),
-  // embedding vector(1536) is added via SQL migration (pgvector not natively supported by Drizzle)
+  // embedding vector(EMBEDDING_DIMENSIONS) is added via scripts/add-pgvector.sh (dimension from
+  // .env.local; e.g. 768 for Vertex text-embedding-005). pgvector not natively supported by Drizzle.
   metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
 });

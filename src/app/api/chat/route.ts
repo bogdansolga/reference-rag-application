@@ -1,9 +1,8 @@
-import { openai } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText } from "ai";
+import { envNum } from "@/lib/config";
 import { embedQuery } from "@/lib/embeddings";
+import { chatModel } from "@/lib/llm";
 import { formatContext, searchSimilar } from "@/lib/retrieval";
-
-const chatModel = process.env.CHAT_MODEL || "gpt-5.4-nano";
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
@@ -32,8 +31,8 @@ export async function POST(req: Request) {
   // 1. Embed the user's query
   const queryEmbedding = await embedQuery(userText);
 
-  // 2. Search for similar chunks
-  const results = await searchSimilar(queryEmbedding, 5);
+  // 2. Search for similar chunks (top-k from .env.local)
+  const results = await searchSimilar(queryEmbedding, envNum("RAG_TOP_K"));
 
   // 3. Build system prompt with retrieved context
   const context = formatContext(results);
@@ -52,7 +51,7 @@ ${context ? `## Retrieved Context\n\n${context}` : "No relevant context found in
 
   // 5. Stream LLM response
   const result = streamText({
-    model: openai(chatModel),
+    model: chatModel(),
     system: systemPrompt,
     messages: await convertToModelMessages(messages),
   });

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reference-rag
+  namespace: reference-rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reference-rag
+  template:
+    metadata:
+      labels:
+        app: reference-rag
+    spec:
+      containers:
+        - name: app
+          image: bogdansolga/reference-rag-application:1.0
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: rag-config
+            - secretRef:
+                name: rag-secrets
+          volumeMounts:
+            - name: gcp-sa
+              mountPath: /var/secrets/gcp
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 25
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+      volumes:
+        - name: gcp-sa
+          secret:
+            secretName: gcp-sa

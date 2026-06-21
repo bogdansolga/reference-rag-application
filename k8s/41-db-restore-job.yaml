@@ -1,0 +1,58 @@
+# Run-once restore of the local rag_training dump (documents + chunks + 768-dim
+# embeddings) into the in-cluster Postgres — an alternative to the Vertex-dependent
+# ingest Job (40-ingest-job.yaml). The pre-computed embeddings come straight from
+# the dump, so no embedding API is needed to populate the knowledge base.
+#
+# The dump is delivered via the `rag-db-dump` ConfigMap (the dump is data, not
+# committed). Create it from a pg18-produced dump, then apply this Job:
+#   pg_dump --no-owner --no-privileges "$LOCAL_DATABASE_URL" > rag.sql
+#   kubectl -n reference-rag create configmap rag-db-dump --from-file=rag.sql=rag.sql
+#   kubectl -n reference-rag apply -f k8s/41-db-restore-job.yaml
+#   kubectl -n reference-rag wait --for=condition=complete job/rag-db-restore --timeout=180s
+#
+# Inspired by the capstone's pg-dump CronJob (k8s-reference/stretch/40-cronjob-backup.yaml),
+# but in reverse: psql -f restores instead of pg_dump backing up. The persistent
+# pgvector volume is the StatefulSet's volumeClaimTemplate (10-postgres.yaml).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rag-db-restore
+  namespace: reference-rag
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: rag-db-restore
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: psql-restore
+          image: pgvector/pgvector:pg18
+          command:
+            - sh
+            - -c
+            - 'psql -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -f /dump/rag.sql'
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: dump
+              mountPath: /dump
+      volumes:
+        - name: dump
+          configMap:
+            name: rag-db-dump

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+  namespace: reference-rag
+data:
+  # Claude generation: direct = Anthropic API (uses ANTHROPIC_API_KEY).
+  CHAT_BACKEND: direct
+  CHAT_MODEL: claude-sonnet-4-6
+  # Vertex AI — used for embeddings ALWAYS (query + ingest), and for chat if
+  # CHAT_BACKEND=vertex. Auth via the mounted service-account JSON (ADC).
+  ANTHROPIC_VERTEX_PROJECT_ID: replace-with-gcp-project-id
+  CLOUD_ML_REGION: europe-west1
+  GOOGLE_APPLICATION_CREDENTIALS: /var/secrets/gcp/sa.json
+  # Embeddings — dimensions must match the model + the pgvector column (768).
+  EMBEDDING_MODEL: text-embedding-005
+  EMBEDDING_DIMENSIONS: "768"
+  # Retrieval + ingestion tuning.
+  RAG_TOP_K: "5"
+  RAG_CHUNK_SIZE: "2000"
+  RAG_CHUNK_OVERLAP: "200"
+  RAG_EMBEDDING_BATCH_SIZE: "20"

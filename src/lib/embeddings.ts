@@ -1,24 +1,27 @@
 /**
- * Embedding utilities for RAG pipeline.
- * Uses OpenAI text-embedding-3-small (1536 dimensions) via Vercel AI SDK.
+ * Embedding utilities for the RAG pipeline.
+ * Embeddings always run on Vertex AI (EU region) — they are unaffected by the
+ * Claude generation backend, and Google first-party models need no API key (ADC).
+ * Model, project and region all come from .env.local (see config.ts).
  */
-import { openai } from "@ai-sdk/openai";
+import { createVertex } from "@ai-sdk/google-vertex";
 import { embed } from "ai";
+import { env } from "./config";
 
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-3-small";
+function embeddingModel() {
+  const vertex = createVertex({
+    project: env("ANTHROPIC_VERTEX_PROJECT_ID"),
+    location: env("CLOUD_ML_REGION"),
+  });
+  return vertex.embeddingModel(env("EMBEDDING_MODEL"));
+}
 
 export async function embedQuery(query: string): Promise<number[]> {
-  const { embedding } = await embed({
-    model: openai.embedding(EMBEDDING_MODEL),
-    value: query,
-  });
+  const { embedding } = await embed({ model: embeddingModel(), value: query });
   return embedding;
 }
 
 export async function embedDocument(content: string): Promise<number[]> {
-  const { embedding } = await embed({
-    model: openai.embedding(EMBEDDING_MODEL),
-    value: content,
-  });
+  const { embedding } = await embed({ model: embeddingModel(), value: content });
   return embedding;
 }

@@ -39,8 +39,9 @@ export default function OverviewPage() {
 
               {/* LLM */}
               <rect x="100" y="280" width="220" height="60" rx="8" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1.5" />
-              <text x="210" y="307" textAnchor="middle" fill="#92400e" fontSize="14" fontWeight="600">Large Language Model</text>
-              <text x="210" y="327" textAnchor="middle" fill="#b45309" fontSize="11">OpenAI gpt-5.4-nano</text>
+              <text x="210" y="305" textAnchor="middle" fill="#92400e" fontSize="14" fontWeight="600">Large Language Model</text>
+              <text x="210" y="323" textAnchor="middle" fill="#b45309" fontSize="11">Claude Sonnet 4.6</text>
+              <text x="210" y="336" textAnchor="middle" fill="#b45309" fontSize="10">Anthropic API ⇄ Vertex AI</text>
 
               {/* Vector DB */}
               <rect x="480" y="280" width="220" height="60" rx="8" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1.5" />
@@ -115,7 +116,7 @@ export default function OverviewPage() {
             {[
               { step: 1, title: "Upload documents", desc: "PDFs are placed in the data/ directory for processing", color: "bg-amber-50 border-amber-200" },
               { step: 2, title: "Chunk text + save metadata", desc: "Split into ~2000 char chunks with ~200 char overlap. Each chunk is stored with its document reference.", color: "bg-amber-50 border-amber-200" },
-              { step: 3, title: "Generate embeddings", desc: "Each chunk is sent to OpenAI text-embedding-3-small → 1536-dimensional vector", color: "bg-amber-50 border-amber-200" },
+              { step: 3, title: "Generate embeddings", desc: "Each chunk is sent to Vertex AI text-embedding-005 (EU region) → 768-dimensional vector", color: "bg-amber-50 border-amber-200" },
               { step: 4, title: "Store embeddings", desc: "Vectors stored in PostgreSQL via pgvector with HNSW index for fast cosine similarity search", color: "bg-amber-50 border-amber-200" },
             ].map(({ step, title, desc, color }) => (
               <div key={step} className={`${color} border rounded-lg p-4 flex gap-4 items-start`}>
@@ -138,10 +139,10 @@ export default function OverviewPage() {
           <div className="space-y-3">
             {[
               { step: 5, title: "User asks a question", desc: "Via the chat interface at the home page", color: "bg-blue-50 border-blue-200" },
-              { step: 6, title: "Embed the question", desc: "Convert the user's question into a 1536-dim vector using the same embedding model", color: "bg-blue-50 border-blue-200" },
+              { step: 6, title: "Embed the question", desc: "Convert the user's question into a 768-dim vector using the same Vertex embedding model", color: "bg-blue-50 border-blue-200" },
               { step: 7, title: "Similarity search", desc: "Find top 5 most similar chunks using cosine distance (⇔ operator) on the HNSW index", color: "bg-blue-50 border-blue-200" },
               { step: 8, title: "Build augmented prompt", desc: "Inject retrieved chunks into the system prompt as context for the LLM", color: "bg-blue-50 border-blue-200" },
-              { step: 9, title: "Stream LLM response", desc: "gpt-5.4-nano generates an answer grounded in the retrieved context, streamed to the UI", color: "bg-blue-50 border-blue-200" },
+              { step: 9, title: "Stream LLM response", desc: "Claude Sonnet 4.6 generates an answer grounded in the retrieved context, streamed to the UI", color: "bg-blue-50 border-blue-200" },
               { step: 10, title: "Display with sources", desc: "Response shown with source citations (document name, chunk index, similarity score)", color: "bg-blue-50 border-blue-200" },
             ].map(({ step, title, desc, color }) => (
               <div key={step} className={`${color} border rounded-lg p-4 flex gap-4 items-start`}>
@@ -153,6 +154,38 @@ export default function OverviewPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Provider-agnostic architecture */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Provider-agnostic by design</h2>
+          <p className="text-base text-[var(--muted)] mb-4">
+            The same code reaches the same Claude model through either backend — chosen by a
+            single environment variable (<code>CHAT_BACKEND</code>). No vendor lock-in, no rewrite.
+          </p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="border border-amber-200 bg-amber-50 rounded-lg p-5">
+              <p className="font-semibold text-base text-amber-900">Anthropic API — running now</p>
+              <p className="text-sm text-amber-800 mt-1"><code>CHAT_BACKEND=direct</code></p>
+              <ul className="text-sm text-amber-800 mt-2 list-disc pl-5 space-y-1">
+                <li>Claude Sonnet 4.6 via api.anthropic.com</li>
+                <li>Works today — independent of GCP partner-model quota</li>
+              </ul>
+            </div>
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-5">
+              <p className="font-semibold text-base text-blue-900">Vertex AI — one-flag toggle</p>
+              <p className="text-sm text-blue-800 mt-1"><code>CHAT_BACKEND=vertex</code></p>
+              <ul className="text-sm text-blue-800 mt-2 list-disc pl-5 space-y-1">
+                <li>Same Claude model, hosted in the EU region</li>
+                <li>Keyless auth (ADC) — no API key on any machine</li>
+                <li>The deployment for regulated data, on an account with quota</li>
+              </ul>
+            </div>
+          </div>
+          <p className="text-sm text-[var(--muted)] mt-4">
+            Retrieval (embeddings + vector search) always runs on <strong>Vertex AI in the EU region</strong>,
+            independent of the generation backend. Same model, same RAG, same output — switchable in one line.
+          </p>
         </section>
 
         {/* Key Considerations */}
